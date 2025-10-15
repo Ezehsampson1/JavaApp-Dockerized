@@ -6,6 +6,11 @@ pipeline {
         maven 'Maven3'       // Use the Maven version configured in Jenkins
     }
 
+    environment {
+        JAVA_HOME = tool('JDK17')
+        PATH = "${env.JAVA_HOME}/bin:${env.PATH}"
+    }
+
     stages {
         stage('Checkout') {
             steps {

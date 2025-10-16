@@ -7,8 +7,11 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = 'Ezehsampson1/JavaApp-Dockerized'   // replace with your DockerHub username/repo
-        DOCKER_TAG = "latest"
+        AWS_REGION = 'us-east-1'  // 🔁 change to your AWS region
+        ECR_REPO_NAME = 'simple-java-app' // 🔁 change to your ECR repo name
+        IMAGE_TAG = "latest"
+        ACCOUNT_ID = credentials('aws-account-id')  // store your AWS account ID as a Jenkins secret text
+        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
     }
 
     stages {
@@ -16,7 +19,7 @@ pipeline {
             steps {
                 git branch: 'main',
                     credentialsId: 'github-credentials',
-                    url: 'https://github.com/Ezehsampson1/JavaApp-Dockerized.git'
+                    url: 'https://github.com/Ezehsampson1/simple-java-app.git'
             }
         }
 
@@ -44,26 +47,34 @@ pipeline {
             }
         }
 
-        // 🐳 NEW STAGE: Dockerize the artifact
-        stage('Dockerize') {
+        // 🐳 NEW STAGE: Dockerize and push to AWS ECR
+        stage('Dockerize & Push to ECR') {
             steps {
                 script {
-                    echo "Building Docker image..."
+                    echo "Building Docker image for ECR..."
 
-                    // Build Docker image from your Dockerfile
-                    sh """
-                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    """
-
-                    echo "Logging in to DockerHub..."
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    // Login to AWS ECR
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials' // 🔁 add AWS creds in Jenkins
+                    ]]) {
+                        sh '''
+                            aws --version
+                            aws ecr get-login-password --region ${AWS_REGION} \
+                            | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                        '''
                     }
 
-                    echo "Pushing image to DockerHub..."
-                    sh """
-                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    """
+                    // Build and tag the image
+                    sh '''
+                        docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} .
+                        docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}
+                    '''
+
+                    // Push to ECR
+                    sh '''
+                        docker push ${ECR_URI}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
@@ -71,10 +82,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build and Dockerization completed successfully!'
+            echo '✅ Build and ECR push completed successfully!'
         }
         failure {
-            echo '❌ Build failed!'
+            echo '❌ Pipeline failed!'
         }
     }
 }

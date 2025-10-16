@@ -17,7 +17,7 @@ pipeline {
                 git branch: 'main',
                     credentialsId: 'github-credentials',
                     url: 'https://github.com/Ezehsampson1/simple-java-app.git'
-	    }
+	        }
         }
 
         stage('Build') {

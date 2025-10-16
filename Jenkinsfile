@@ -8,9 +8,9 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'  // 🔁 change to your AWS region
-        ECR_REPO_NAME = 'simple-java-app' // 🔁 change to your ECR repo name
+        ECR_REPO_NAME = 'simple-web-app' // 🔁 change to your ECR repo name
         IMAGE_TAG = "latest"
-        ACCOUNT_ID = credentials('aws-account-id')  // store your AWS account ID as a Jenkins secret text
+        ACCOUNT_ID = '927788617166'  // store your AWS account ID as a Jenkins secret text
         ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
     }
 

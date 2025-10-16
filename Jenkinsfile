@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        jdk 'JDK17'          // Use the JDK configured in Jenkins
-        maven 'Maven3'       // Use the Maven version configured in Jenkins
+        jdk 'JDK17'
+        maven 'Maven3'
     }
 
     environment {
-        JAVA_HOME = tool('JDK17')
-        PATH = "${env.JAVA_HOME}/bin:${env.PATH}"
+        DOCKER_IMAGE = 'Ezehsampson1/JavaApp-Dockerized'   // replace with your DockerHub username/repo
+        DOCKER_TAG = "latest"
     }
 
     stages {
@@ -16,8 +16,8 @@ pipeline {
             steps {
                 git branch: 'main',
                     credentialsId: 'github-credentials',
-                    url: 'https://github.com/Ezehsampson1/simple-java-app.git'
-	        }
+                    url: 'https://github.com/Ezehsampson1/JavaApp-Dockerized.git'
+            }
         }
 
         stage('Build') {
@@ -43,15 +43,38 @@ pipeline {
                 archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
             }
         }
+
+        // 🐳 NEW STAGE: Dockerize the artifact
+        stage('Dockerize') {
+            steps {
+                script {
+                    echo "Building Docker image..."
+
+                    // Build Docker image from your Dockerfile
+                    sh """
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    """
+
+                    echo "Logging in to DockerHub..."
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    }
+
+                    echo "Pushing image to DockerHub..."
+                    sh """
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    """
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo '✅ Build completed successfully!'
+            echo '✅ Build and Dockerization completed successfully!'
         }
         failure {
             echo '❌ Build failed!'
         }
     }
 }
-
